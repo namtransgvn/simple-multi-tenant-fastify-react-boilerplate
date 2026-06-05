@@ -7,28 +7,9 @@ import fastifySensible from '@fastify/sensible'
 import fastifyRateLimit from '@fastify/rate-limit'
 import { ulid } from 'ulid'
 import { config } from './config.js'
+import authPlugin from './plugins/auth.plugin.js'
 
 type HttpError = Error & { statusCode?: number }
-
-declare module '@fastify/jwt' {
-  interface FastifyJWT {
-    payload: JwtPayload
-    user: JwtPayload
-  }
-}
-
-export interface JwtPayload {
-  userId: string
-  tenantId: string
-  roles: string[]
-  permissions: string[]
-}
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenantId: string
-  }
-}
 
 export async function buildApp(opts: FastifyServerOptions = {}): Promise<FastifyInstance> {
   const isTest = config.nodeEnv === 'test'
@@ -56,6 +37,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   })
 
   await fastify.register(fastifySensible)
+
+  await fastify.register(authPlugin)
 
   // global: false — auth routes opt-in via route-level config
   await fastify.register(fastifyRateLimit, {
@@ -94,7 +77,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
 
   // ── Routes ─────────────────────────────────────────────────────────────────
 
-  fastify.get('/health', async () => {
+  fastify.get('/health', { config: { public: true } }, async () => {
     let dbStatus: 'ok' | 'error' = 'error'
     try {
       const { checkDb } = await import('./db/index.js')
