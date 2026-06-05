@@ -1,0 +1,74 @@
+{
+  "name": "@repo/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./permissions": {
+      "types": "./dist/permissions.d.ts",
+      "import": "./dist/permissions.js",
+      "require": "./dist/permissions.cjs"
+    },
+    "./constants": {
+      "types": "./dist/constants.d.ts",
+      "import": "./dist/constants.js",
+      "require": "./dist/constants.cjs"
+    },
+    "./schemas/auth": {
+      "types": "./dist/schemas/auth.d.ts",
+      "import": "./dist/schemas/auth.js",
+      "require": "./dist/schemas/auth.cjs"
+    },
+    "./schemas/tenants": {
+      "types": "./dist/schemas/tenants.d.ts",
+      "import": "./dist/schemas/tenants.js",
+      "require": "./dist/schemas/tenants.cjs"
+    },
+    "./schemas/projects": {
+      "types": "./dist/schemas/projects.d.ts",
+      "import": "./dist/schemas/projects.js",
+      "require": "./dist/schemas/projects.cjs"
+    },
+    "./schemas/documents": {
+      "types": "./dist/schemas/documents.d.ts",
+      "import": "./dist/schemas/documents.js",
+      "require": "./dist/schemas/documents.cjs"
+    },
+    "./schemas/chat": {
+      "types": "./dist/schemas/chat.d.ts",
+      "import": "./dist/schemas/chat.js",
+      "require": "./dist/schemas/chat.cjs"
+    },
+    "./schemas/roles": {
+      "types": "./dist/schemas/roles.d.ts",
+      "import": "./dist/schemas/roles.js",
+      "require": "./dist/schemas/roles.cjs"
+    },
+    "./schemas/groups": {
+      "types": "./dist/schemas/groups.d.ts",
+      "import": "./dist/schemas/groups.js",
+      "require": "./dist/schemas/groups.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --tsconfig tsconfig.build.json --out-dir dist",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --tsconfig tsconfig.build.json --out-dir dist --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  }
+}
