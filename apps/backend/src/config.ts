@@ -51,6 +51,10 @@ const envSchema = z
 
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
     AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+
+    // Seed
+    MASTER_TENANT_ID: z.string().uuid().default('00000000-0000-0000-0000-000000000001'),
+    ADMIN_EMAIL: z.string().email().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== 'development' && data.CORS_ORIGIN === '*') {
@@ -141,4 +145,7 @@ export const config = {
     max: env.AUTH_RATE_LIMIT_MAX,
     windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
   },
+
+  masterTenantId: env.MASTER_TENANT_ID,
+  adminEmail: env.ADMIN_EMAIL,
 } as const
