@@ -48,8 +48,8 @@ function authHeader(token: string) {
   return { authorization: `Bearer ${token}` }
 }
 
-function jsonBody(payload: unknown) {
-  return { headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }
+function jsonBody(payload: unknown, extraHeaders: Record<string, string> = {}) {
+  return { headers: { 'content-type': 'application/json', ...extraHeaders }, body: JSON.stringify(payload) }
 }
 
 // ─── setup / teardown ────────────────────────────────────────────────────────
@@ -235,8 +235,7 @@ describe('POST /api/projects', () => {
   it('returns 403 when user lacks project:create permission', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/projects',
-      headers: authHeader(noPermToken),
-      ...jsonBody({ name: 'Blocked' }),
+      ...jsonBody({ name: 'Blocked' }, authHeader(noPermToken)),
     })
     expect(res.statusCode).toBe(403)
   })
@@ -244,8 +243,7 @@ describe('POST /api/projects', () => {
   it('returns 201 and creates the project', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/projects',
-      headers: authHeader(ownerToken),
-      ...jsonBody({ name: 'New Project', description: 'A desc' }),
+      ...jsonBody({ name: 'New Project', description: 'A desc' }, authHeader(ownerToken)),
     })
 
     expect(res.statusCode).toBe(201)
@@ -261,8 +259,7 @@ describe('POST /api/projects', () => {
   it('creates a project without a description', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/projects',
-      headers: authHeader(ownerToken),
-      ...jsonBody({ name: 'Minimal' }),
+      ...jsonBody({ name: 'Minimal' }, authHeader(ownerToken)),
     })
     expect(res.statusCode).toBe(201)
     expect(res.json<{ description: unknown }>().description).toBeNull()
@@ -271,8 +268,7 @@ describe('POST /api/projects', () => {
   it('returns 400 when name is missing', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/projects',
-      headers: authHeader(ownerToken),
-      ...jsonBody({ description: 'No name' }),
+      ...jsonBody({ description: 'No name' }, authHeader(ownerToken)),
     })
     expect(res.statusCode).toBe(400)
   })
@@ -280,8 +276,7 @@ describe('POST /api/projects', () => {
   it('returns 400 when name exceeds 100 characters', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/projects',
-      headers: authHeader(ownerToken),
-      ...jsonBody({ name: 'x'.repeat(101) }),
+      ...jsonBody({ name: 'x'.repeat(101) }, authHeader(ownerToken)),
     })
     expect(res.statusCode).toBe(400)
   })
@@ -353,8 +348,7 @@ describe('PUT /api/projects/:projectId', () => {
   it('returns 404 for a non-existent project', async () => {
     const res = await app.inject({
       method: 'PUT', url: '/api/projects/00000000-0000-0000-0000-000000000099',
-      headers: authHeader(ownerToken),
-      ...jsonBody({ name: 'X' }),
+      ...jsonBody({ name: 'X' }, authHeader(ownerToken)),
     })
     expect(res.statusCode).toBe(404)
   })
@@ -367,8 +361,7 @@ describe('PUT /api/projects/:projectId', () => {
 
     const res = await app.inject({
       method: 'PUT', url: `/api/projects/${project.id}`,
-      headers: authHeader(ownerToken),
-      ...jsonBody({ name: 'Renamed', description: 'Updated desc' }),
+      ...jsonBody({ name: 'Renamed', description: 'Updated desc' }, authHeader(ownerToken)),
     })
 
     expect(res.statusCode).toBe(200)
@@ -385,8 +378,7 @@ describe('PUT /api/projects/:projectId', () => {
 
     const res = await app.inject({
       method: 'PUT', url: `/api/projects/${project.id}`,
-      headers: authHeader(noPermToken),
-      ...jsonBody({ name: 'Hijacked' }),
+      ...jsonBody({ name: 'Hijacked' }, authHeader(noPermToken)),
     })
     expect(res.statusCode).toBe(403)
   })
@@ -399,8 +391,7 @@ describe('PUT /api/projects/:projectId', () => {
 
     const res = await app.inject({
       method: 'PUT', url: `/api/projects/${project.id}`,
-      headers: authHeader(adminToken),
-      ...jsonBody({ name: 'Admin Updated' }),
+      ...jsonBody({ name: 'Admin Updated' }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(200)
     expect(res.json<{ name: string }>().name).toBe('Admin Updated')
@@ -414,8 +405,7 @@ describe('PUT /api/projects/:projectId', () => {
 
     const res = await app.inject({
       method: 'PUT', url: `/api/projects/${project.id}`,
-      headers: authHeader(ownerToken),
-      ...jsonBody({ name: 'x'.repeat(101) }),
+      ...jsonBody({ name: 'x'.repeat(101) }, authHeader(ownerToken)),
     })
     expect(res.statusCode).toBe(400)
   })

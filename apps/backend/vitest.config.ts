@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
-    exclude: ['src/**/*.integration.test.ts', 'node_modules'],
+    exclude: ['src/**/*.integration.test.ts', 'src/__tests__/integration/**/*.test.ts', 'node_modules'],
     // Provide minimum required env so config.ts can be imported without throwing.
     // Tests that import config directly should mock it with vi.mock instead.
     env: {
