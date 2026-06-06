@@ -9,7 +9,7 @@
  *   pnpm test:integration
  */
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 import { createHmac } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
 import { and, eq } from 'drizzle-orm'
@@ -46,8 +46,8 @@ function authHeader(token: string) {
   return { authorization: `Bearer ${token}` }
 }
 
-function jsonBody(payload: unknown) {
-  return { headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }
+function jsonBody(payload: unknown, extraHeaders: Record<string, string> = {}) {
+  return { headers: { 'content-type': 'application/json', ...extraHeaders }, body: JSON.stringify(payload) }
 }
 
 // ─── setup / teardown ────────────────────────────────────────────────────────
@@ -177,8 +177,7 @@ describe('POST /api/admin/ai-providers', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'anthropic', apiKey: 'sk-ant-test-key' }),
+      ...jsonBody({ providerType: 'anthropic', apiKey: 'sk-ant-test-key' }, authHeader(adminToken)),
     })
 
     expect(res.statusCode).toBe(201)
@@ -196,8 +195,7 @@ describe('POST /api/admin/ai-providers', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'openai', apiKey: 'sk-openai-key', allowedModels: ['gpt-4o', 'gpt-4o-mini'] }),
+      ...jsonBody({ providerType: 'openai', apiKey: 'sk-openai-key', allowedModels: ['gpt-4o', 'gpt-4o-mini'] }, authHeader(adminToken)),
     })
 
     expect(res.statusCode).toBe(201)
@@ -208,8 +206,7 @@ describe('POST /api/admin/ai-providers', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'unknown-llm', apiKey: 'some-key' }),
+      ...jsonBody({ providerType: 'unknown-llm', apiKey: 'some-key' }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(400)
   })
@@ -218,8 +215,7 @@ describe('POST /api/admin/ai-providers', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'anthropic' }),
+      ...jsonBody({ providerType: 'anthropic' }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(400)
   })
@@ -228,8 +224,7 @@ describe('POST /api/admin/ai-providers', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'anthropic', apiKey: '' }),
+      ...jsonBody({ providerType: 'anthropic', apiKey: '' }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(400)
   })
@@ -238,14 +233,12 @@ describe('POST /api/admin/ai-providers', () => {
     await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'anthropic', apiKey: 'sk-first' }),
+      ...jsonBody({ providerType: 'anthropic', apiKey: 'sk-first' }, authHeader(adminToken)),
     })
     const second = await app.inject({
       method: 'POST',
       url: '/api/admin/ai-providers',
-      headers: authHeader(adminToken),
-      ...jsonBody({ providerType: 'anthropic', apiKey: 'sk-second', allowedModels: ['claude-haiku-4-5'] }),
+      ...jsonBody({ providerType: 'anthropic', apiKey: 'sk-second', allowedModels: ['claude-haiku-4-5'] }, authHeader(adminToken)),
     })
     expect(second.statusCode).toBe(201)
 
@@ -261,8 +254,9 @@ describe('POST /api/admin/ai-providers', () => {
 // ─── PUT /api/admin/ai-providers/:providerType ────────────────────────────────
 
 describe('PUT /api/admin/ai-providers/:providerType', () => {
-  beforeAll(async () => {
-    // Seed a provider to update
+  // afterEach (outer scope) deletes all providers after every test, so we must
+  // re-seed before each test rather than once for the whole describe.
+  beforeEach(async () => {
     await db.insert(schema.tenantAiProviders).values({
       tenantId: testTenantId,
       providerType: 'openai',
@@ -275,8 +269,7 @@ describe('PUT /api/admin/ai-providers/:providerType', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/admin/ai-providers/openai',
-      headers: authHeader(adminToken),
-      ...jsonBody({ allowedModels: ['gpt-4o', 'gpt-4o-mini'] }),
+      ...jsonBody({ allowedModels: ['gpt-4o', 'gpt-4o-mini'] }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(200)
     expect(res.json<{ allowedModels: string[] }>().allowedModels).toEqual(['gpt-4o', 'gpt-4o-mini'])
@@ -286,8 +279,7 @@ describe('PUT /api/admin/ai-providers/:providerType', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/admin/ai-providers/openai',
-      headers: authHeader(adminToken),
-      ...jsonBody({ apiKey: 'sk-openai-new-key' }),
+      ...jsonBody({ apiKey: 'sk-openai-new-key' }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(200)
 
@@ -308,8 +300,7 @@ describe('PUT /api/admin/ai-providers/:providerType', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/admin/ai-providers/gemini',
-      headers: authHeader(adminToken),
-      ...jsonBody({ allowedModels: [] }),
+      ...jsonBody({ allowedModels: [] }, authHeader(adminToken)),
     })
     expect(res.statusCode).toBe(404)
   })
@@ -318,7 +309,8 @@ describe('PUT /api/admin/ai-providers/:providerType', () => {
 // ─── PATCH /api/admin/ai-providers/:providerType/disable|enable ───────────────
 
 describe('PATCH /disable and /enable', () => {
-  beforeAll(async () => {
+  // afterEach (outer scope) wipes providers after every test; re-seed each time.
+  beforeEach(async () => {
     await db.insert(schema.tenantAiProviders).values({
       tenantId: testTenantId,
       providerType: 'gemini',
