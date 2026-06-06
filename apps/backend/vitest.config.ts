@@ -12,6 +12,8 @@ export default defineConfig({
       JWT_SECRET: 'unit-test-secret-at-least-32-chars-long!',
       CORS_ORIGIN: 'http://localhost:5173',
       AI_PROVIDERS: '',
+      // 64 hex chars = 32 bytes; safe placeholder for unit tests that mock config
+      AI_KEY_ENCRYPTION_SECRET: '0'.repeat(64),
     },
   },
 })

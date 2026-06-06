@@ -9,6 +9,7 @@ import { ulid } from 'ulid'
 import { config } from './config.js'
 import authPlugin from './plugins/auth.plugin.js'
 import authRoutes from './routes/auth.js'
+import adminAiProvidersRoutes from './routes/admin/ai-providers.js'
 
 type HttpError = Error & { statusCode?: number }
 
@@ -79,6 +80,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   // ── Routes ─────────────────────────────────────────────────────────────────
 
   await fastify.register(authRoutes, { prefix: '/auth' })
+  await fastify.register(adminAiProvidersRoutes, { prefix: '/api/admin/ai-providers' })
 
   fastify.get('/health', { config: { public: true } }, async () => {
     let dbStatus: 'ok' | 'error' = 'error'

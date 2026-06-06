@@ -53,6 +53,11 @@
       "types": "./dist/schemas/groups.d.ts",
       "import": "./dist/schemas/groups.js",
       "require": "./dist/schemas/groups.cjs"
+    },
+    "./schemas/ai-providers": {
+      "types": "./dist/schemas/ai-providers.d.ts",
+      "import": "./dist/schemas/ai-providers.js",
+      "require": "./dist/schemas/ai-providers.cjs"
     }
   },
   "main": "./dist/index.cjs",
