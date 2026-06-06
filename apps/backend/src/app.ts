@@ -11,6 +11,8 @@ import authPlugin from './plugins/auth.plugin.js'
 import authRoutes from './routes/auth.js'
 import adminAiProvidersRoutes from './routes/admin/ai-providers.js'
 import projectsRoutes from './routes/projects.js'
+import chatRoutes from './routes/chat.js'
+import providersRoutes from './routes/providers.js'
 
 type HttpError = Error & { statusCode?: number }
 
@@ -83,6 +85,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await fastify.register(authRoutes, { prefix: '/auth' })
   await fastify.register(adminAiProvidersRoutes, { prefix: '/api/admin/ai-providers' })
   await fastify.register(projectsRoutes, { prefix: '/api/projects' })
+  await fastify.register(chatRoutes, { prefix: '/api/chat' })
+  await fastify.register(providersRoutes, { prefix: '/api/providers' })
 
   fastify.get('/health', { config: { public: true } }, async () => {
     let dbStatus: 'ok' | 'error' = 'error'
