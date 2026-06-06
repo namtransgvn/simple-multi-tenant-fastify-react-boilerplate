@@ -16,6 +16,7 @@ import adminUsersRoutes from './routes/admin/users.js'
 import projectsRoutes from './routes/projects.js'
 import chatRoutes from './routes/chat.js'
 import providersRoutes from './routes/providers.js'
+import masterTenantsRoutes from './routes/master/tenants.js'
 
 type HttpError = Error & { statusCode?: number }
 
@@ -93,6 +94,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await fastify.register(projectsRoutes, { prefix: '/api/projects' })
   await fastify.register(chatRoutes, { prefix: '/api/chat' })
   await fastify.register(providersRoutes, { prefix: '/api/providers' })
+  await fastify.register(masterTenantsRoutes, { prefix: '/api/master/tenants' })
 
   fastify.get('/health', { config: { public: true } }, async () => {
     let dbStatus: 'ok' | 'error' = 'error'
