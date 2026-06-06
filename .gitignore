@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Uploads
 uploads/
+
+# TanStack Router generated file
+**/routeTree.gen.ts
