@@ -7,3 +7,4 @@ export * from "./schemas/documents.js";
 export * from "./schemas/chat.js";
 export * from "./schemas/roles.js";
 export * from "./schemas/groups.js";
+export * from "./schemas/ai-providers.js";

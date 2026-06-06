@@ -52,6 +52,11 @@ const envSchema = z
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
     AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
 
+    // AI key encryption — must be a 64-char hex string (32 bytes)
+    AI_KEY_ENCRYPTION_SECRET: z
+      .string()
+      .regex(/^[0-9a-fA-F]{64}$/, 'Must be a 64-character hex string (32 bytes)'),
+
     // Seed
     MASTER_TENANT_ID: z.string().uuid().default('00000000-0000-0000-0000-000000000001'),
     ADMIN_EMAIL: z.string().email().optional(),
@@ -145,6 +150,8 @@ export const config = {
     max: env.AUTH_RATE_LIMIT_MAX,
     windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS,
   },
+
+  aiKeyEncryptionSecret: env.AI_KEY_ENCRYPTION_SECRET,
 
   masterTenantId: env.MASTER_TENANT_ID,
   adminEmail: env.ADMIN_EMAIL,

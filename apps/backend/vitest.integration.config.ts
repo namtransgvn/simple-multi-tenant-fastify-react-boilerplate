@@ -23,6 +23,7 @@ export default defineConfig({
       JWT_SECRET: process.env.JWT_SECRET ?? 'integration-test-secret-min-32-chars-long!',
       CORS_ORIGIN: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
       AI_PROVIDERS: process.env.AI_PROVIDERS ?? '',
+      AI_KEY_ENCRYPTION_SECRET: process.env.AI_KEY_ENCRYPTION_SECRET ?? '0'.repeat(64),
     },
   },
 })
