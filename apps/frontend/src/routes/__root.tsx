@@ -36,7 +36,8 @@ function RootComponent() {
 export const Route = createRootRoute({
   beforeLoad: ({ location }) => {
     const isAuthenticated = useAuthStore.getState().isAuthenticated
-    if (!isAuthenticated && location.pathname !== '/login') {
+    const publicPaths = ['/login', '/auth/callback']
+    if (!isAuthenticated && !publicPaths.includes(location.pathname)) {
       throw redirect({ to: '/login' })
     }
   },
