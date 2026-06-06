@@ -10,6 +10,9 @@ import { config } from './config.js'
 import authPlugin from './plugins/auth.plugin.js'
 import authRoutes from './routes/auth.js'
 import adminAiProvidersRoutes from './routes/admin/ai-providers.js'
+import adminRolesRoutes from './routes/admin/roles.js'
+import adminGroupsRoutes from './routes/admin/groups.js'
+import adminUsersRoutes from './routes/admin/users.js'
 import projectsRoutes from './routes/projects.js'
 import chatRoutes from './routes/chat.js'
 import providersRoutes from './routes/providers.js'
@@ -84,6 +87,9 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
 
   await fastify.register(authRoutes, { prefix: '/auth' })
   await fastify.register(adminAiProvidersRoutes, { prefix: '/api/admin/ai-providers' })
+  await fastify.register(adminRolesRoutes, { prefix: '/api/admin/roles' })
+  await fastify.register(adminGroupsRoutes, { prefix: '/api/admin/groups' })
+  await fastify.register(adminUsersRoutes, { prefix: '/api/admin/users' })
   await fastify.register(projectsRoutes, { prefix: '/api/projects' })
   await fastify.register(chatRoutes, { prefix: '/api/chat' })
   await fastify.register(providersRoutes, { prefix: '/api/providers' })
