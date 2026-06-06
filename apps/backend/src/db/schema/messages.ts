@@ -13,6 +13,7 @@ export const messages = pgTable(
     content: text('content').notNull(),
     provider: varchar('provider', { length: 50 }),
     model: varchar('model', { length: 100 }),
+    keySource: varchar('key_source', { length: 20 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('messages_tenant_id_idx').on(t.tenantId)],
