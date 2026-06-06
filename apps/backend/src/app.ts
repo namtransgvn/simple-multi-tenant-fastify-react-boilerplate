@@ -8,6 +8,7 @@ import fastifyRateLimit from '@fastify/rate-limit'
 import { ulid } from 'ulid'
 import { config } from './config.js'
 import authPlugin from './plugins/auth.plugin.js'
+import authRoutes from './routes/auth.js'
 
 type HttpError = Error & { statusCode?: number }
 
@@ -76,6 +77,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   })
 
   // ── Routes ─────────────────────────────────────────────────────────────────
+
+  await fastify.register(authRoutes, { prefix: '/auth' })
 
   fastify.get('/health', { config: { public: true } }, async () => {
     let dbStatus: 'ok' | 'error' = 'error'
