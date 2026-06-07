@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { Permission } from '@repo/shared'
 import { db } from './index.js'
 import { tenants, users, roles, userRoles, ssoProviders } from './schema/index.js'
@@ -33,11 +33,19 @@ async function seed(): Promise<void> {
         {
           tenantId: MASTER_TENANT_ID,
           name: 'member',
-          permissions: [Permission.PROJECT_CREATE, Permission.PROJECT_READ, Permission.CHAT_USE],
+          permissions: [
+            Permission.PROJECT_CREATE,
+            Permission.PROJECT_READ,
+            Permission.CHAT_USE,
+            Permission.DOCUMENT_MANAGE,
+          ],
           isBuiltin: true,
         },
       ])
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [roles.tenantId, roles.name],
+        set: { permissions: sql`excluded.permissions`, updatedAt: new Date() },
+      })
 
     // 3. Upsert admin user and assign admin role
     if (!config.adminEmail) {

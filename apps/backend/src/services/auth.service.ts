@@ -143,6 +143,19 @@ async function handleSsoCallback(
         })
         .returning({ id: schema.users.id, tenantId: schema.users.tenantId })
 
+      const [memberRole] = await db
+        .select({ id: schema.roles.id })
+        .from(schema.roles)
+        .where(and(eq(schema.roles.tenantId, tenantId), eq(schema.roles.name, 'member')))
+        .limit(1)
+
+      if (memberRole) {
+        await db
+          .insert(schema.userRoles)
+          .values({ userId: newUser.id, roleId: memberRole.id, tenantId })
+          .onConflictDoNothing()
+      }
+
       user = { id: newUser.id, tenantId: newUser.tenantId }
     }
   }
