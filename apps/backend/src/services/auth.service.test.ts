@@ -232,10 +232,11 @@ describe('authService.handleSsoCallback', () => {
   it('creates a new user when none exists and returns tokens', async () => {
     const newUser = { id: 'new-user-id', tenantId: '00000000-0000-0000-0000-000000000001' }
     const db = {
-      // select calls in order: existing user lookup, sso provider lookup, userRoles, groupRoles
+      // select calls in order: existing user lookup, sso provider lookup, userByEmail, userRoles, groupRoles
       select: vi.fn()
         .mockReturnValueOnce(thenable([]))         // existing user → not found
         .mockReturnValueOnce(thenable([]))         // sso_providers → not found → fall back to master tenant
+        .mockReturnValueOnce(thenable([]))         // userByEmail → not found → proceed to insert
         .mockReturnValueOnce(thenable([]))         // userRoles (for generateTokens)
         .mockReturnValueOnce(thenable([])),        // groupRoles
       insert: vi.fn()
