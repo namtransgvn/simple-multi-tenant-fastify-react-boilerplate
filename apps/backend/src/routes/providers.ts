@@ -5,9 +5,18 @@ import { authProviderFactory } from '../providers/auth/factory.js'
 import { tenantAiProvidersService } from '../services/tenant-ai-providers.service.js'
 
 async function providersRoutes(fastify: FastifyInstance): Promise<void> {
-  // GET /api/providers — tenant-scoped list of usable AI providers + models
-  fastify.get('/', async (request) => {
-    const tenantId = request.tenantId!
+  // GET /api/providers — public; returns tenant-scoped providers when authenticated,
+  // otherwise returns all factory-registered providers (used by the chat UI before login).
+  fastify.get('/', { config: { public: true, skipTenantGuard: true } }, async (request) => {
+    const tenantId = request.tenantId
+
+    if (!tenantId) {
+      const providers = aiProviderFactory.listProviderTypes().map((providerType) => ({
+        provider: providerType,
+        models: aiProviderFactory.getSupportedModels(providerType),
+      }))
+      return { providers }
+    }
 
     const [effectiveProviderTypes, tenantConfigs] = await Promise.all([
       tenantAiProvidersService.getEffectiveProviders(tenantId, db),

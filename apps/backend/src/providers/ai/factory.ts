@@ -23,6 +23,10 @@ export class AIProviderFactory {
   getSupportedModels(providerType: string): string[] {
     return this.resolve(providerType).supportedModels;
   }
+
+  listProviderTypes(): string[] {
+    return Array.from(this.providers.keys());
+  }
 }
 
 export const aiProviderFactory = new AIProviderFactory();

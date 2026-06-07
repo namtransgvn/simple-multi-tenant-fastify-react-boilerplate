@@ -9,13 +9,13 @@ import { ulid } from 'ulid'
 import { config } from './config.js'
 import authPlugin from './plugins/auth.plugin.js'
 import authRoutes from './routes/auth.js'
+import providersRoutes from './routes/providers.js'
+import projectsRoutes from './routes/projects.js'
+import chatRoutes from './routes/chat.js'
 import adminAiProvidersRoutes from './routes/admin/ai-providers.js'
 import adminRolesRoutes from './routes/admin/roles.js'
 import adminGroupsRoutes from './routes/admin/groups.js'
 import adminUsersRoutes from './routes/admin/users.js'
-import projectsRoutes from './routes/projects.js'
-import chatRoutes from './routes/chat.js'
-import providersRoutes from './routes/providers.js'
 import masterTenantsRoutes from './routes/master/tenants.js'
 
 type HttpError = Error & { statusCode?: number }
@@ -30,7 +30,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
     ...opts,
   })
 
-  // ── Plugins ────────────────────────────────────────────────────────────────
+  // ── 1. Plugins ─────────────────────────────────────────────────────────────
 
   await fastify.register(fastifyJwt, {
     secret: config.jwtSecret,
@@ -47,14 +47,18 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
 
   await fastify.register(fastifySensible)
 
-  await fastify.register(authPlugin)
-
-  // global: false — auth routes opt-in via route-level config
+  // global: false — auth routes opt-in to rate limiting via route-level config
   await fastify.register(fastifyRateLimit, {
     global: false,
     max: config.authRateLimit.max,
     timeWindow: config.authRateLimit.windowMs,
   })
+
+  // ── 2. Auth plugin ─────────────────────────────────────────────────────────
+  // Wrapped with fp() so request.user / request.tenantId decorations are
+  // visible across all encapsulation boundaries.
+
+  await fastify.register(authPlugin)
 
   // ── Global hooks ───────────────────────────────────────────────────────────
 
@@ -84,17 +88,18 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
     reply.status(statusCode).send({ statusCode, error: errorName, message, errorId })
   })
 
-  // ── Routes ─────────────────────────────────────────────────────────────────
+  // ── 404 handler ────────────────────────────────────────────────────────────
 
-  await fastify.register(authRoutes, { prefix: '/auth' })
-  await fastify.register(adminAiProvidersRoutes, { prefix: '/api/admin/ai-providers' })
-  await fastify.register(adminRolesRoutes, { prefix: '/api/admin/roles' })
-  await fastify.register(adminGroupsRoutes, { prefix: '/api/admin/groups' })
-  await fastify.register(adminUsersRoutes, { prefix: '/api/admin/users' })
-  await fastify.register(projectsRoutes, { prefix: '/api/projects' })
-  await fastify.register(chatRoutes, { prefix: '/api/chat' })
-  await fastify.register(providersRoutes, { prefix: '/api/providers' })
-  await fastify.register(masterTenantsRoutes, { prefix: '/api/master/tenants' })
+  fastify.setNotFoundHandler((request, reply) => {
+    reply.status(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      message: `Route ${request.method}:${request.url} not found`,
+      errorId: `err_${ulid()}`,
+    })
+  })
+
+  // ── Routes ─────────────────────────────────────────────────────────────────
 
   fastify.get('/health', { config: { public: true } }, async () => {
     let dbStatus: 'ok' | 'error' = 'error'
@@ -111,6 +116,27 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
       version: process.env.npm_package_version ?? '0.0.0',
     }
   })
+
+  // 3. /auth — public (SSO callbacks, token refresh, logout), rate-limited
+  await fastify.register(authRoutes, { prefix: '/auth' })
+
+  // 4. /api/providers — public (AI providers list, SSO provider list)
+  await fastify.register(providersRoutes, { prefix: '/api/providers' })
+
+  // 5. /api/projects — authenticated
+  await fastify.register(projectsRoutes, { prefix: '/api/projects' })
+
+  // 6. /api/chat — authenticated
+  await fastify.register(chatRoutes, { prefix: '/api/chat' })
+
+  // 7. /api/admin/* — authenticated + ADMIN_MANAGE permission
+  await fastify.register(adminAiProvidersRoutes, { prefix: '/api/admin/ai-providers' })
+  await fastify.register(adminRolesRoutes, { prefix: '/api/admin/roles' })
+  await fastify.register(adminGroupsRoutes, { prefix: '/api/admin/groups' })
+  await fastify.register(adminUsersRoutes, { prefix: '/api/admin/users' })
+
+  // 8. /api/master/* — authenticated + master tenant + TENANT_MANAGE permission
+  await fastify.register(masterTenantsRoutes, { prefix: '/api/master/tenants' })
 
   return fastify
 }
