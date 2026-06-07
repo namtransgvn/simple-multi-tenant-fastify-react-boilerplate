@@ -1,7 +1,8 @@
 import { eq, and, sql } from 'drizzle-orm'
 import { Permission } from '@repo/shared'
 import { db } from './index.js'
-import { tenants, users, roles, userRoles, ssoProviders } from './schema/index.js'
+import { tenants, users, roles, userRoles, ssoProviders, tenantAiProviders } from './schema/index.js'
+import { encryptApiKey } from '../lib/crypto.js'
 import { config } from '../config.js'
 
 const MASTER_TENANT_ID = config.masterTenantId
@@ -109,6 +110,42 @@ async function seed(): Promise<void> {
           },
         })
       console.log(`Seeded SSO provider: ${entry.providerType}`)
+    }
+
+    // 5. Seed AI providers for master tenant from env
+    const aiEntries = [
+      config.anthropicApiKey
+        ? { providerType: 'anthropic' as const, apiKey: config.anthropicApiKey, allowedModels: ['claude-sonnet-4-5'] }
+        : null,
+      config.openaiApiKey
+        ? { providerType: 'openai' as const, apiKey: config.openaiApiKey, allowedModels: ['gpt-5-mini'] }
+        : null,
+      config.googleAiApiKey
+        ? { providerType: 'gemini' as const, apiKey: config.googleAiApiKey, allowedModels: ['gemini-2.5-flash'] }
+        : null,
+    ].filter((e): e is NonNullable<typeof e> => e !== null)
+
+    for (const entry of aiEntries) {
+      const encryptedApiKey = encryptApiKey(entry.apiKey)
+      await tx
+        .insert(tenantAiProviders)
+        .values({
+          tenantId: MASTER_TENANT_ID,
+          providerType: entry.providerType,
+          encryptedApiKey,
+          enabled: true,
+          allowedModels: entry.allowedModels,
+        })
+        .onConflictDoUpdate({
+          target: [tenantAiProviders.tenantId, tenantAiProviders.providerType],
+          set: {
+            encryptedApiKey,
+            enabled: true,
+            allowedModels: entry.allowedModels,
+            updatedAt: new Date(),
+          },
+        })
+      console.log(`Seeded AI provider: ${entry.providerType}`)
     }
   })
 
