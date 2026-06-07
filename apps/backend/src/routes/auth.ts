@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { ssoProviders as ssoProvidersTable, tenants as tenantsTable } from '../db/schema/index.js'
 import { authService, parseDurationSeconds } from '../services/auth.service.js'
 import { authProviderFactory } from '../providers/auth/factory.js'
 import { config } from '../config.js'
@@ -13,23 +15,36 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   keycloak: 'Keycloak',
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const REFRESH_TOKEN_MAX_AGE = parseDurationSeconds(config.refreshTokenExpiresIn)
 const RATE_LIMIT_CONFIG = { max: config.authRateLimit.max, timeWindow: config.authRateLimit.windowMs }
 
-function generateState(): string {
+// State format: "{32hex-nonce}.{tenantId}.{64hex-hmac}"
+// HMAC covers "{nonce}.{tenantId}" so tenantId is integrity-protected.
+function generateState(tenantId: string): string {
   const nonce = randomBytes(16).toString('hex')
-  const hmac = createHmac('sha256', config.jwtSecret).update(nonce).digest('hex')
-  return `${nonce}.${hmac}`
+  const data = `${nonce}.${tenantId}`
+  const hmac = createHmac('sha256', config.jwtSecret).update(data).digest('hex')
+  return `${data}.${hmac}`
 }
 
 function verifyState(state: string): boolean {
-  const dotIndex = state.indexOf('.')
-  if (dotIndex === -1) return false
-  const nonce = state.slice(0, dotIndex)
-  const provided = state.slice(dotIndex + 1)
-  const expected = createHmac('sha256', config.jwtSecret).update(nonce).digest('hex')
+  const lastDot = state.lastIndexOf('.')
+  if (lastDot === -1) return false
+  const data = state.slice(0, lastDot)
+  const provided = state.slice(lastDot + 1)
+  const expected = createHmac('sha256', config.jwtSecret).update(data).digest('hex')
   if (provided.length !== expected.length) return false
   return timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
+}
+
+// Call only after verifyState returns true.
+function extractTenantFromState(state: string): string {
+  const lastDot = state.lastIndexOf('.')
+  const data = state.slice(0, lastDot) // "{nonce}.{tenantId}"
+  const firstDot = data.indexOf('.')
+  return data.slice(firstDot + 1)
 }
 
 function buildRedirectUri(request: FastifyRequest, provider: string): string {
@@ -68,30 +83,85 @@ function getRefreshTokenCookie(request: FastifyRequest): string | undefined {
 }
 
 async function authRoutes(fastify: FastifyInstance): Promise<void> {
-  // GET /sso — list available SSO providers with their authorize URLs
-  fastify.get(
+  // GET /tenants — public list of tenants that have at least one enabled SSO provider
+  fastify.get('/tenants', { config: { public: true } }, async () => {
+    const [allTenants, enabledProviders] = await Promise.all([
+      db.select({ id: tenantsTable.id, name: tenantsTable.name, slug: tenantsTable.slug }).from(tenantsTable),
+      db
+        .select({ tenantId: ssoProvidersTable.tenantId, providerType: ssoProvidersTable.providerType })
+        .from(ssoProvidersTable)
+        .where(eq(ssoProvidersTable.enabled, true)),
+    ])
+
+    const providersByTenant = new Map<string, string[]>()
+    for (const p of enabledProviders) {
+      if (!p.tenantId) continue
+      const arr = providersByTenant.get(p.tenantId) ?? []
+      arr.push(p.providerType)
+      providersByTenant.set(p.tenantId, arr)
+    }
+
+    const tenants = allTenants
+      .filter((t) => providersByTenant.has(t.id))
+      .map((t) => ({ ...t, ssoProviders: providersByTenant.get(t.id) ?? [] }))
+
+    return { tenants }
+  })
+
+  // GET /sso — list SSO providers, optionally filtered to a specific tenant
+  fastify.get<{ Querystring: { tenantId?: string } }>(
     '/sso',
     { config: { public: true, rateLimit: RATE_LIMIT_CONFIG } },
-    async (request) => {
+    async (request, reply) => {
+      const { tenantId } = request.query
+
+      if (tenantId !== undefined && !UUID_RE.test(tenantId)) {
+        return reply.badRequest('Invalid tenantId')
+      }
+
       const baseUrl = buildRedirectUri(request, '__placeholder__')
         .replace('/auth/sso/__placeholder__/callback', '')
 
-      const providers = authProviderFactory.listProviderTypes().map((providerType) => ({
-        providerType,
-        name: PROVIDER_DISPLAY_NAMES[providerType] ?? providerType,
-        authorizationUrl: `${baseUrl}/auth/sso/${providerType}/authorize`,
-      }))
+      let providerTypes: string[]
+
+      if (tenantId) {
+        const rows = await db
+          .select({ providerType: ssoProvidersTable.providerType })
+          .from(ssoProvidersTable)
+          .where(and(eq(ssoProvidersTable.tenantId, tenantId), eq(ssoProvidersTable.enabled, true)))
+        providerTypes = rows
+          .map((r) => r.providerType)
+          .filter((type) => {
+            try { authProviderFactory.resolve(type); return true } catch { return false }
+          })
+      } else {
+        providerTypes = authProviderFactory.listProviderTypes()
+      }
+
+      const providers = providerTypes.map((providerType) => {
+        const params = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ''
+        return {
+          providerType,
+          name: PROVIDER_DISPLAY_NAMES[providerType] ?? providerType,
+          authorizationUrl: `${baseUrl}/auth/sso/${providerType}/authorize${params}`,
+        }
+      })
 
       return { providers }
     },
   )
 
   // GET /sso/:provider/authorize — redirect browser to the OAuth provider
-  fastify.get<{ Params: { provider: string } }>(
+  fastify.get<{ Params: { provider: string }; Querystring: { tenantId?: string } }>(
     '/sso/:provider/authorize',
     { config: { public: true, rateLimit: RATE_LIMIT_CONFIG } },
     async (request, reply) => {
       const { provider } = request.params
+      const tenantId = request.query.tenantId ?? config.masterTenantId
+
+      if (!UUID_RE.test(tenantId)) {
+        return reply.badRequest('Invalid tenantId')
+      }
 
       let authProvider
       try {
@@ -100,7 +170,7 @@ async function authRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.badRequest(`Unknown SSO provider: ${provider}`)
       }
 
-      const state = generateState()
+      const state = generateState(tenantId)
       const redirectUri = buildRedirectUri(request, provider)
       const authorizationUrl = authProvider.getAuthorizationUrl(state, redirectUri)
 
@@ -108,7 +178,7 @@ async function authRoutes(fastify: FastifyInstance): Promise<void> {
     },
   )
 
-  // GET /sso/:provider/callback — exchange code, issue tokens
+  // GET /sso/:provider/callback — exchange code, issue tokens, redirect to frontend
   fastify.get<{ Params: { provider: string }; Querystring: { code?: string; state?: string } }>(
     '/sso/:provider/callback',
     { config: { public: true, rateLimit: RATE_LIMIT_CONFIG } },
@@ -124,19 +194,21 @@ async function authRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.badRequest('Invalid state parameter')
       }
 
+      const tenantId = extractTenantFromState(state)
       const redirectUri = buildRedirectUri(request, provider)
 
       let result
       try {
-        result = await authService.handleSsoCallback(provider, code, redirectUri, db)
+        result = await authService.handleSsoCallback(provider, code, redirectUri, db, tenantId)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'SSO authentication failed'
         request.log.error({ err }, message)
         return reply.internalServerError(message)
       }
 
+      const frontendBase = config.corsOrigins[0]
       setRefreshTokenCookie(reply, result.refreshToken)
-      return reply.send({ accessToken: result.accessToken })
+      return reply.redirect(`${frontendBase}/auth/callback?token=${result.accessToken}`, 302)
     },
   )
 

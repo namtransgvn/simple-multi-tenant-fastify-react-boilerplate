@@ -104,14 +104,16 @@ async function runSsoFlow(): Promise<{ accessToken: string; rtCookie: string; us
   expect(state).toBeTruthy()
 
   // Step 2: callback with the extracted state (mocked provider handles `code`).
+  // The callback now redirects to the frontend with the token in the URL.
   const callbackRes = await app.inject({
     method: 'GET',
     url: `/auth/sso/google/callback?code=mock-code&state=${encodeURIComponent(state)}`,
   })
-  expect(callbackRes.statusCode).toBe(200)
+  expect(callbackRes.statusCode).toBe(302)
 
-  const body = callbackRes.json<{ accessToken: string }>()
-  expect(body.accessToken).toBeTruthy()
+  const location = callbackRes.headers.location as string
+  const accessToken = new URL(location).searchParams.get('token') ?? ''
+  expect(accessToken).toBeTruthy()
 
   const rtCookie = extractRtCookie(callbackRes.headers['set-cookie'])
   expect(rtCookie).toBeTruthy()
@@ -125,7 +127,7 @@ async function runSsoFlow(): Promise<{ accessToken: string; rtCookie: string; us
     .limit(1)
   if (newUser) createdUserIds.push(newUser.id)
 
-  return { accessToken: body.accessToken, rtCookie: rtCookie!, userId: newUser?.id ?? '' }
+  return { accessToken, rtCookie: rtCookie!, userId: newUser?.id ?? '' }
 }
 
 // ─── GET /auth/sso ────────────────────────────────────────────────────────────
@@ -159,8 +161,8 @@ describe('GET /auth/sso/:provider/authorize', () => {
     const res = await app.inject({ method: 'GET', url: '/auth/sso/google/authorize' })
     const state = extractState(res.headers.location as string)
     expect(state).toBeTruthy()
-    // State format is nonce.hmac — two dot-separated hex strings.
-    expect(state.split('.')).toHaveLength(2)
+    // State format is nonce.tenantId.hmac — three dot-separated segments.
+    expect(state.split('.')).toHaveLength(3)
   })
 
   it('returns 400 for an unknown provider', async () => {
@@ -190,7 +192,7 @@ describe('GET /auth/sso/:provider/callback', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  it('issues tokens and sets an rt HttpOnly cookie on success', async () => {
+  it('redirects to the frontend with the access token and sets an rt HttpOnly cookie on success', async () => {
     const authorizeRes = await app.inject({ method: 'GET', url: '/auth/sso/google/authorize' })
     const state = extractState(authorizeRes.headers.location as string)
 
@@ -198,11 +200,14 @@ describe('GET /auth/sso/:provider/callback', () => {
       method: 'GET',
       url: `/auth/sso/google/callback?code=mock-code&state=${encodeURIComponent(state)}`,
     })
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(302)
 
-    const body = res.json<{ accessToken: string }>()
-    expect(body.accessToken).toBeTruthy()
-    expect(body.accessToken.split('.')).toHaveLength(3)
+    const location = res.headers.location as string
+    expect(location).toBeTruthy()
+
+    const accessToken = new URL(location).searchParams.get('token') ?? ''
+    expect(accessToken).toBeTruthy()
+    expect(accessToken.split('.')).toHaveLength(3)
 
     const setCookie = res.headers['set-cookie'] as string | string[]
     const rtCookie = extractRtCookie(setCookie)
