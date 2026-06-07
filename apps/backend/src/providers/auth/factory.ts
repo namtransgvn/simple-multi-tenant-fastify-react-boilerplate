@@ -1,4 +1,6 @@
-import { config } from '../../config.js'
+import { eq } from 'drizzle-orm'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '../../db/schema/index.js'
 import type { AuthProvider } from './interface.js'
 import { GoogleAuthProvider } from './google.js'
 import { AmazonCognitoAuthProvider } from './amazon-cognito.js'
@@ -9,6 +11,10 @@ export class AuthProviderFactory {
 
   register(provider: AuthProvider): void {
     this.providers.set(provider.providerType, provider)
+  }
+
+  clear(): void {
+    this.providers.clear()
   }
 
   resolve(providerType: string): AuthProvider {
@@ -26,30 +32,51 @@ export class AuthProviderFactory {
 
 export const authProviderFactory = new AuthProviderFactory()
 
-const { google, cognito, keycloak } = config.sso
+export async function initAuthProviders(
+  db: PostgresJsDatabase<typeof schema>,
+): Promise<void> {
+  authProviderFactory.clear()
 
-if (google.clientId && google.clientSecret) {
-  authProviderFactory.register(new GoogleAuthProvider(google.clientId, google.clientSecret))
-}
+  const rows = await db
+    .select()
+    .from(schema.ssoProviders)
+    .where(eq(schema.ssoProviders.enabled, true))
 
-if (cognito.clientId && cognito.clientSecret && cognito.issuerUrl) {
-  authProviderFactory.register(
-    new AmazonCognitoAuthProvider(cognito.clientId, cognito.clientSecret, cognito.issuerUrl),
-  )
-}
-
-if (keycloak.clientId && keycloak.clientSecret && keycloak.issuerUrl) {
-  try {
-    const provider = await KeycloakAuthProvider.create(
-      keycloak.clientId,
-      keycloak.clientSecret,
-      keycloak.issuerUrl,
-    )
-    authProviderFactory.register(provider)
-  } catch (err) {
-    // Credentials present but Keycloak unreachable at startup — skip registration
-    process.stderr.write(
-      `[auth] Keycloak provider skipped: ${err instanceof Error ? err.message : String(err)}\n`,
-    )
+  for (const row of rows) {
+    try {
+      switch (row.providerType) {
+        case 'google':
+          authProviderFactory.register(new GoogleAuthProvider(row.clientId, row.clientSecret))
+          break
+        case 'amazon-cognito':
+          if (!row.issuerUrl) {
+            process.stderr.write(`[auth] amazon-cognito provider skipped: missing issuer_url\n`)
+            break
+          }
+          authProviderFactory.register(
+            new AmazonCognitoAuthProvider(row.clientId, row.clientSecret, row.issuerUrl),
+          )
+          break
+        case 'keycloak': {
+          if (!row.issuerUrl) {
+            process.stderr.write(`[auth] keycloak provider skipped: missing issuer_url\n`)
+            break
+          }
+          const provider = await KeycloakAuthProvider.create(
+            row.clientId,
+            row.clientSecret,
+            row.issuerUrl,
+          )
+          authProviderFactory.register(provider)
+          break
+        }
+        default:
+          process.stderr.write(`[auth] Unknown provider type "${row.providerType}" — skipped\n`)
+      }
+    } catch (err) {
+      process.stderr.write(
+        `[auth] Provider "${row.providerType}" skipped: ${err instanceof Error ? err.message : String(err)}\n`,
+      )
+    }
   }
 }

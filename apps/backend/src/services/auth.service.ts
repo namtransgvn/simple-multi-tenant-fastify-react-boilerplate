@@ -71,6 +71,7 @@ async function handleSsoCallback(
   code: string,
   redirectUri: string,
   db: Db,
+  overrideTenantId?: string,
 ) {
   const provider = authProviderFactory.resolve(providerType)
   const tokenSet = await provider.exchangeCodeForToken(code, redirectUri)
@@ -96,31 +97,54 @@ async function handleSsoCallback(
       .where(eq(schema.users.id, existingUser.id))
     user = { id: existingUser.id, tenantId: existingUser.tenantId }
   } else {
-    const [ssoRow] = await db
-      .select({ tenantId: schema.ssoProviders.tenantId })
-      .from(schema.ssoProviders)
-      .where(
-        and(
-          eq(schema.ssoProviders.providerType, providerType),
-          eq(schema.ssoProviders.enabled, true),
-        ),
-      )
+    let tenantId: string
+    if (overrideTenantId) {
+      tenantId = overrideTenantId
+    } else {
+      const [ssoRow] = await db
+        .select({ tenantId: schema.ssoProviders.tenantId })
+        .from(schema.ssoProviders)
+        .where(
+          and(
+            eq(schema.ssoProviders.providerType, providerType),
+            eq(schema.ssoProviders.enabled, true),
+          ),
+        )
+        .limit(1)
+      tenantId = ssoRow?.tenantId ?? config.masterTenantId
+    }
+
+    const [userByEmail] = await db
+      .select()
+      .from(schema.users)
+      .where(and(eq(schema.users.tenantId, tenantId), eq(schema.users.email, profile.email)))
       .limit(1)
 
-    const tenantId = ssoRow?.tenantId ?? config.masterTenantId
+    if (userByEmail) {
+      await db
+        .update(schema.users)
+        .set({
+          ssoProvider: profile.providerType,
+          ssoSubject: profile.subject,
+          displayName: profile.displayName,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, userByEmail.id))
+      user = { id: userByEmail.id, tenantId: userByEmail.tenantId }
+    } else {
+      const [newUser] = await db
+        .insert(schema.users)
+        .values({
+          tenantId,
+          email: profile.email,
+          displayName: profile.displayName,
+          ssoProvider: profile.providerType,
+          ssoSubject: profile.subject,
+        })
+        .returning({ id: schema.users.id, tenantId: schema.users.tenantId })
 
-    const [newUser] = await db
-      .insert(schema.users)
-      .values({
-        tenantId,
-        email: profile.email,
-        displayName: profile.displayName,
-        ssoProvider: profile.providerType,
-        ssoSubject: profile.subject,
-      })
-      .returning({ id: schema.users.id, tenantId: schema.users.tenantId })
-
-    user = { id: newUser.id, tenantId: newUser.tenantId }
+      user = { id: newUser.id, tenantId: newUser.tenantId }
+    }
   }
 
   const tokens = await generateTokens(user, db)

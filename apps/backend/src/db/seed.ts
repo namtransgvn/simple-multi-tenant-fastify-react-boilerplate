@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm'
 import { Permission } from '@repo/shared'
 import { db } from './index.js'
-import { tenants, users, roles, userRoles } from './schema/index.js'
+import { tenants, users, roles, userRoles, ssoProviders } from './schema/index.js'
 import { config } from '../config.js'
 
 const MASTER_TENANT_ID = config.masterTenantId
@@ -73,6 +73,34 @@ async function seed(): Promise<void> {
           tenantId: MASTER_TENANT_ID,
         })
         .onConflictDoNothing()
+    }
+
+    // 4. Seed SSO providers for master tenant from env
+    const { google, keycloak } = config.sso
+    const ssoEntries = [
+      google.clientId && google.clientSecret
+        ? { providerType: 'google' as const, clientId: google.clientId, clientSecret: google.clientSecret, issuerUrl: null }
+        : null,
+      keycloak.clientId && keycloak.clientSecret && keycloak.issuerUrl
+        ? { providerType: 'keycloak' as const, clientId: keycloak.clientId, clientSecret: keycloak.clientSecret, issuerUrl: keycloak.issuerUrl }
+        : null,
+    ].filter((e): e is NonNullable<typeof e> => e !== null)
+
+    for (const entry of ssoEntries) {
+      await tx
+        .insert(ssoProviders)
+        .values({ tenantId: MASTER_TENANT_ID, ...entry, enabled: true })
+        .onConflictDoUpdate({
+          target: [ssoProviders.tenantId, ssoProviders.providerType],
+          set: {
+            clientId: entry.clientId,
+            clientSecret: entry.clientSecret,
+            issuerUrl: entry.issuerUrl,
+            enabled: true,
+            updatedAt: new Date(),
+          },
+        })
+      console.log(`Seeded SSO provider: ${entry.providerType}`)
     }
   })
 
