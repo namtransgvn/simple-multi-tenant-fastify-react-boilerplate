@@ -26,3 +26,8 @@
   --color-input: oklch(0.922 0 0);
   --color-ring: oklch(0.708 0 0);
 }
+
+@keyframes indeterminate-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(500%); }
+}
