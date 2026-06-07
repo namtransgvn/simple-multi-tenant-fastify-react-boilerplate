@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AiProvider } from '@repo/shared'
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string

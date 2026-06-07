@@ -77,11 +77,12 @@ export const api = {
   postForm: <T>(path: string, body: FormData) => requestForm<T>(path, body),
 }
 
-export async function* streamChat(chatBody: ChatRequest): AsyncGenerator<ChatStreamChunk> {
+export async function* streamChat(chatBody: ChatRequest, signal?: AbortSignal): AsyncGenerator<ChatStreamChunk> {
   const response = await fetch(`${BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(chatBody),
+    signal,
   })
 
   if (!response.ok || !response.body) {
