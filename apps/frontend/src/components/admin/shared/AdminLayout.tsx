@@ -5,6 +5,7 @@ const tabs = [
   { label: 'Roles', to: '/admin/roles' as const },
   { label: 'Groups', to: '/admin/groups' as const },
   { label: 'Users', to: '/admin/users' as const },
+  { label: 'AI Providers', to: '/admin/ai-providers' as const },
 ]
 
 interface AdminLayoutProps {
