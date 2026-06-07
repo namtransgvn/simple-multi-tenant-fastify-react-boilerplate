@@ -9,6 +9,7 @@ import { documentsService } from '../services/documents.service.js'
 import { projectsService } from '../services/projects.service.js'
 import { chatService } from '../services/chat.service.js'
 import { requirePermission } from '../hooks/permission-guard.js'
+import { config } from '../config.js'
 
 const SYSTEM_PROMPT_PREFIX =
   'You are an AI assistant. Use the following documents as context for your responses.\n\n'
@@ -74,12 +75,21 @@ async function chatRoutes(fastify: FastifyInstance): Promise<void> {
       const systemPrompt = SYSTEM_PROMPT_PREFIX + context
 
       // 7. Take ownership of the raw response for SSE
+      // reply.hijack() bypasses Fastify's reply pipeline, so @fastify/cors headers
+      // are not flushed automatically — we must set them here on the raw response.
+      const requestOrigin = request.headers.origin
+      const allowedOrigin = config.corsOrigins.includes(requestOrigin ?? '') ? requestOrigin : undefined
+
       reply.hijack()
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
+        ...(allowedOrigin && {
+          'Access-Control-Allow-Origin': allowedOrigin,
+          'Access-Control-Allow-Credentials': 'true',
+        }),
       })
 
       const sessionId = randomUUID()

@@ -3,7 +3,7 @@ import type { AIProvider, ChatMessage, StreamOptions } from "./interface.js";
 
 export class OpenAIProvider implements AIProvider {
   readonly providerType = "openai";
-  readonly supportedModels = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"];
+  readonly supportedModels = ["gpt-5-mini"];
 
   async *streamChat(
     apiKey: string,

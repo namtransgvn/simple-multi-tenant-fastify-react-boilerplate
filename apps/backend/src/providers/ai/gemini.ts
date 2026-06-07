@@ -3,11 +3,7 @@ import type { AIProvider, ChatMessage, StreamOptions } from "./interface.js";
 
 export class GeminiProvider implements AIProvider {
   readonly providerType = "gemini";
-  readonly supportedModels = [
-    "gemini-2.0-flash",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash",
-  ];
+  readonly supportedModels = ["gemini-2.5-flash"];
 
   async *streamChat(
     apiKey: string,
