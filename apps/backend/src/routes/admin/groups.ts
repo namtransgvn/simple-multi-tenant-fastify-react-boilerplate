@@ -20,6 +20,14 @@ async function adminGroupsRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.status(201).send(group)
   })
 
+  fastify.get<{ Params: { groupId: string } }>(
+    '/:groupId/members',
+    guard,
+    async (request) => {
+      return rbacService.listGroupMembers(request.tenantId!, request.params.groupId, db)
+    },
+  )
+
   fastify.post<{ Params: { groupId: string }; Body: unknown }>(
     '/:groupId/members',
     guard,

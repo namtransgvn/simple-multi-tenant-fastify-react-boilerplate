@@ -18,7 +18,7 @@ export function GroupModal({ open, onClose }: GroupModalProps) {
 
   const { data: rolesData } = useQuery({
     queryKey: ['admin', 'roles'],
-    queryFn: () => api.get<{ items: RoleResponse[] }>('/api/admin/roles'),
+    queryFn: () => api.get<RoleResponse[]>('/api/admin/roles'),
     enabled: open,
   })
 
@@ -65,7 +65,7 @@ export function GroupModal({ open, onClose }: GroupModalProps) {
           <div>
             <label className="block text-sm font-medium mb-2">Roles</label>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {rolesData?.items.map((role) => (
+              {rolesData?.map((role) => (
                 <label key={role.id} className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"
@@ -76,7 +76,7 @@ export function GroupModal({ open, onClose }: GroupModalProps) {
                   {role.name}
                 </label>
               ))}
-              {rolesData?.items.length === 0 && (
+              {rolesData?.length === 0 && (
                 <p className="text-sm text-muted-foreground">No roles available.</p>
               )}
             </div>
