@@ -21,7 +21,7 @@ export function RolesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'roles'],
-    queryFn: () => api.get<{ items: RoleResponse[] }>('/api/admin/roles'),
+    queryFn: () => api.get<RoleResponse[]>('/api/admin/roles'),
   })
 
   const deleteMutation = useMutation({
@@ -70,14 +70,14 @@ export function RolesPage() {
                 </tr>
               </thead>
               <tbody>
-                {data?.items.length === 0 && (
+                {data?.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted-foreground">
                       No roles yet.
                     </td>
                   </tr>
                 )}
-                {data?.items.map((role) => (
+                {data?.map((role) => (
                   <tr
                     key={role.id}
                     className="border-b border-border last:border-0 hover:bg-muted/30"

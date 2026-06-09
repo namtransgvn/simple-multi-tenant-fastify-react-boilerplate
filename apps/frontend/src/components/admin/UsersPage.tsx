@@ -19,7 +19,7 @@ export function UsersPage() {
 
   const { data: rolesData } = useQuery({
     queryKey: ['admin', 'roles'],
-    queryFn: () => api.get<{ items: RoleResponse[] }>('/api/admin/roles'),
+    queryFn: () => api.get<RoleResponse[]>('/api/admin/roles'),
     enabled: !!userId,
   })
 
@@ -31,7 +31,7 @@ export function UsersPage() {
 
   const assignMutation = useMutation({
     mutationFn: (roleId: string) =>
-      api.post(`/api/admin/users/${userId}/roles`, { roleId }),
+      api.post(`/api/admin/users/${userId}/roles`, { roleIds: [roleId] }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users', userId, 'roles'] })
       setAddingRoleId('')
@@ -49,7 +49,7 @@ export function UsersPage() {
   const directRoleIds = new Set(userRoles?.direct.map((r) => r.id) ?? [])
   const fromGroupIds = new Set(userRoles?.fromGroups.map((r) => r.id) ?? [])
   const availableToAdd =
-    rolesData?.items.filter((r) => !directRoleIds.has(r.id) && !fromGroupIds.has(r.id)) ?? []
+    rolesData?.filter((r) => !directRoleIds.has(r.id) && !fromGroupIds.has(r.id)) ?? []
 
   return (
     <AdminLayout>

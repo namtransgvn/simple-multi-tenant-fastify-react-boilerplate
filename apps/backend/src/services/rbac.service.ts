@@ -213,6 +213,35 @@ async function createGroup(tenantId: string, data: CreateGroupRequest, db: Db): 
   }
 }
 
+interface GroupMember {
+  id: string
+  displayName: string
+  email: string
+}
+
+async function listGroupMembers(tenantId: string, groupId: string, db: Db): Promise<GroupMember[]> {
+  const [group] = await db
+    .select({ id: schema.groups.id })
+    .from(schema.groups)
+    .where(and(eq(schema.groups.tenantId, tenantId), eq(schema.groups.id, groupId)))
+    .limit(1)
+  if (!group) {
+    throw Object.assign(new Error('Group not found'), { statusCode: 404 })
+  }
+
+  const rows = await db
+    .select({
+      id: schema.users.id,
+      displayName: schema.users.displayName,
+      email: schema.users.email,
+    })
+    .from(schema.userGroups)
+    .innerJoin(schema.users, eq(schema.userGroups.userId, schema.users.id))
+    .where(and(eq(schema.userGroups.groupId, groupId), eq(schema.userGroups.tenantId, tenantId)))
+
+  return rows.map((r) => ({ id: r.id, displayName: r.displayName ?? r.email, email: r.email }))
+}
+
 async function addGroupMember(tenantId: string, groupId: string, userId: string, db: Db): Promise<void> {
   const [group] = await db
     .select({ id: schema.groups.id })
@@ -368,6 +397,7 @@ export const rbacService = {
   deleteRole,
   listGroups,
   createGroup,
+  listGroupMembers,
   addGroupMember,
   removeGroupMember,
   deleteGroup,

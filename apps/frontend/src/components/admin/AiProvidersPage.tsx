@@ -16,12 +16,12 @@ export function AiProvidersPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'ai-providers', tenantId],
-    queryFn: () => api.get<{ items: TenantAiProviderResponse[] }>('/api/admin/ai-providers'),
+    queryFn: () => api.get<TenantAiProviderResponse[]>('/api/admin/ai-providers'),
     enabled: !!tenantId,
   })
 
   function getConfig(providerType: string): TenantAiProviderResponse | null {
-    return data?.items.find((item) => item.providerType === providerType) ?? null
+    return data?.find((item) => item.providerType === providerType) ?? null
   }
 
   return (

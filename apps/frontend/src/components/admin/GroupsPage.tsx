@@ -22,7 +22,7 @@ function GroupMembersRow({ groupId }: { groupId: string }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'groups', groupId, 'members'],
-    queryFn: () => api.get<{ items: GroupMember[] }>(`/api/admin/groups/${groupId}/members`),
+    queryFn: () => api.get<GroupMember[]>(`/api/admin/groups/${groupId}/members`),
   })
 
   const removeMutation = useMutation({
@@ -38,11 +38,11 @@ function GroupMembersRow({ groupId }: { groupId: string }) {
       <td colSpan={3} className="px-8 py-3">
         {isLoading ? (
           <Skeleton className="h-8 w-48" />
-        ) : data?.items.length === 0 ? (
+        ) : data?.length === 0 ? (
           <p className="text-sm text-muted-foreground">No members in this group.</p>
         ) : (
           <div className="space-y-1">
-            {data?.items.map((member) => (
+            {data?.map((member) => (
               <div key={member.id} className="flex items-center justify-between text-sm">
                 <span>
                   {member.displayName}{' '}
@@ -76,7 +76,7 @@ export function GroupsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'groups'],
-    queryFn: () => api.get<{ items: GroupResponse[] }>('/api/admin/groups'),
+    queryFn: () => api.get<GroupResponse[]>('/api/admin/groups'),
   })
 
   const deleteMutation = useMutation({
@@ -118,7 +118,7 @@ export function GroupsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data?.items.length === 0 && (
+                {data?.length === 0 && (
                   <tr>
                     <td
                       colSpan={3}
@@ -128,7 +128,7 @@ export function GroupsPage() {
                     </td>
                   </tr>
                 )}
-                {data?.items.map((group) => (
+                {data?.map((group) => (
                   <Fragment key={group.id}>
                     <tr
                       className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
